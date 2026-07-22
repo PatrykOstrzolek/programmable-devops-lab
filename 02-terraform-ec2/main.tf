@@ -1,1 +1,23 @@
-# Resources will be added after the Terraform scaffold is validated.
+data "aws_vpc" "default" {
+  default = true
+}
+
+resource "aws_security_group" "web" {
+  name        = "programmable-devops-lab-web"
+  description = "Security group for the learning environment"
+  vpc_id      = data.aws_vpc.default.id
+
+  egress {
+    description = "Allow outbound traffic for updates and administration"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name      = "programmable-devops-lab-web"
+    Project   = "programmable-devops-lab"
+    ManagedBy = "terraform"
+  }
+}

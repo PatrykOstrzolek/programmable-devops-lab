@@ -65,3 +65,12 @@ s3://programmable-devops-lab-tfstate-812047028383/02-terraform-ec2/terraform.tfs
 
 Verification completed successfully with `terraform init`, `terraform validate`, and
 `terraform plan`. The plan reported no infrastructure changes.
+
+## Security group
+
+The main configuration currently creates one security group in the default VPC. It
+allows outbound traffic for updates and administration but has no inbound rules yet.
+SSH access will be added later with a CIDR restricted to the administrator's IP.
+
+The security group was applied successfully as `sg-0bd8eeba0ab2bc2e6`. A subsequent
+`terraform plan` reported no changes.

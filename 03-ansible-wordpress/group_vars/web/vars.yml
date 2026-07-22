@@ -1,0 +1,9 @@
+---
+wp_salt_auth_key: "{{ lookup('ansible.builtin.password', '.wp_salts/AUTH_KEY', length=64, chars=['ascii_letters', 'digits']) }}"
+wp_salt_secure_auth_key: "{{ lookup('ansible.builtin.password', '.wp_salts/SECURE_AUTH_KEY', length=64, chars=['ascii_letters', 'digits']) }}"
+wp_salt_logged_in_key: "{{ lookup('ansible.builtin.password', '.wp_salts/LOGGED_IN_KEY', length=64, chars=['ascii_letters', 'digits']) }}"
+wp_salt_nonce_key: "{{ lookup('ansible.builtin.password', '.wp_salts/NONCE_KEY', length=64, chars=['ascii_letters', 'digits']) }}"
+wp_salt_auth_salt: "{{ lookup('ansible.builtin.password', '.wp_salts/AUTH_SALT', length=64, chars=['ascii_letters', 'digits']) }}"
+wp_salt_secure_auth_salt: "{{ lookup('ansible.builtin.password', '.wp_salts/SECURE_AUTH_SALT', length=64, chars=['ascii_letters', 'digits']) }}"
+wp_salt_logged_in_salt: "{{ lookup('ansible.builtin.password', '.wp_salts/LOGGED_IN_SALT', length=64, chars=['ascii_letters', 'digits']) }}"
+wp_salt_nonce_salt: "{{ lookup('ansible.builtin.password', '.wp_salts/NONCE_SALT', length=64, chars=['ascii_letters', 'digits']) }}"

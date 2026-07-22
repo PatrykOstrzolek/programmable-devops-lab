@@ -1,0 +1,9 @@
+---
+- name: Configure the learning WordPress server
+  hosts: web
+  become: true
+  roles:
+    - common
+    - web
+    - database
+    - wordpress

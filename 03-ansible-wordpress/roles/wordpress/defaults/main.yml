@@ -1,0 +1,5 @@
+---
+wordpress_download_url: https://wordpress.org/latest.tar.gz
+wordpress_download_dest: /tmp/wordpress-latest.tar.gz
+wordpress_extract_dest: /tmp
+wordpress_table_prefix: wp_

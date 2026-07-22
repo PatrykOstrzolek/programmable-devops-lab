@@ -14,7 +14,7 @@ Recreate minimal EC2 infrastructure from Terraform code.
 - [x] Create a security group with restricted SSH and HTTP/HTTPS access.
 - [x] Create a Free Tier eligible instance type.
 - [x] Add an output for the public address.
-- [ ] Run `fmt`, `validate`, `plan`, `apply`, and `destroy`.
+- [x] Run `fmt`, `validate`, `plan`, `apply`, and `destroy`.
 
 ## Terraform scaffold
 
@@ -119,3 +119,16 @@ The instance was applied successfully as `i-0e926d66381a22e45`, reachable at
 `51.102.110.245` (`ec2-51-102-110-245.eu-central-1.compute.amazonaws.com`).
 
 Remember to run `terraform destroy` when done to avoid ongoing EC2/public IPv4 costs.
+
+## Destroy
+
+The instance, security group, and key pair were destroyed to avoid running a
+duplicate EC2 instance in parallel with the one stage 04 creates:
+
+```bash
+terraform destroy -var='admin_cidr=159.26.110.46/32' -var="ssh_public_key=$(cat ~/.ssh/id_ed25519.pub)"
+```
+
+`Destroy complete! Resources: 3 destroyed.` The state bucket, its bootstrap, and the
+stage 04 GitHub Actions OIDC bootstrap were not affected — they live in separate
+Terraform state.

@@ -11,9 +11,9 @@ Recreate minimal EC2 infrastructure from Terraform code.
 ## To do
 
 - [x] Configure providers and variables.
-- [ ] Create a security group with restricted SSH and HTTP/HTTPS access.
-- [ ] Create a Free Tier eligible instance type.
-- [ ] Add an output for the public address.
+- [x] Create a security group with restricted SSH and HTTP/HTTPS access.
+- [x] Create a Free Tier eligible instance type.
+- [x] Add an output for the public address.
 - [ ] Run `fmt`, `validate`, `plan`, `apply`, and `destroy`.
 
 ## Terraform scaffold
@@ -89,3 +89,33 @@ local `~/.ssh/id_ed25519.pub` public key. The private key is never read by Terra
 committed to Git, or uploaded to AWS.
 
 The key pair was applied successfully, and a subsequent plan reported no changes.
+
+## EC2 instance
+
+The main configuration also creates the learning EC2 instance:
+
+- Ubuntu 24.04 LTS (amd64), looked up via the `aws_ami` data source.
+- `t3.micro`, Free Tier eligible.
+- 20 GB encrypted `gp3` root volume.
+- Public IPv4 address, placed in the default VPC's first subnet (sorted by ID for a
+  deterministic choice across applies).
+- Attached to the `programmable-devops-lab-web` security group and the
+  `programmable-devops-lab` key pair.
+- IMDSv2 required (`http_tokens = "required"`).
+
+The security group allows inbound SSH from `admin_cidr` only, and inbound HTTP (80)
+and HTTPS (443) from anywhere, so the instance can serve a public website.
+
+Outputs `instance_id`, `public_ip`, and `public_dns` (defined in `outputs.tf`) expose
+the instance's address after `apply`.
+
+For example:
+
+```bash
+terraform apply -var='admin_cidr=159.26.110.46/32' -var='ssh_public_key=YOUR_PUBLIC_KEY'
+```
+
+The instance was applied successfully as `i-0e926d66381a22e45`, reachable at
+`51.102.110.245` (`ec2-51-102-110-245.eu-central-1.compute.amazonaws.com`).
+
+Remember to run `terraform destroy` when done to avoid ongoing EC2/public IPv4 costs.

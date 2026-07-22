@@ -27,3 +27,7 @@ Add these repository secrets in GitHub before running it:
 - `SSH_PRIVATE_KEY` — the complete private key, including the `BEGIN` and `END` lines.
 
 Run it from **Actions → SSH connectivity check → Run workflow**. A successful run prints the remote hostname and SSH username. A failed run should be investigated before adding deployment steps.
+
+## Verification
+
+On 2026-07-22, workflow run `29937712600` completed successfully. It connected to the EC2 instance and returned the remote hostname and the `ubuntu` SSH user. The workflow did not deploy files or change the server.

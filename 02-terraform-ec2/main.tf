@@ -2,6 +2,17 @@ data "aws_vpc" "default" {
   default = true
 }
 
+resource "aws_key_pair" "ssh" {
+  key_name   = "programmable-devops-lab"
+  public_key = var.ssh_public_key
+
+  tags = {
+    Name      = "programmable-devops-lab"
+    Project   = "programmable-devops-lab"
+    ManagedBy = "terraform"
+  }
+}
+
 resource "aws_security_group" "web" {
   name        = "programmable-devops-lab-web"
   description = "Security group for the learning environment"

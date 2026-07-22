@@ -81,3 +81,11 @@ terraform apply -var='admin_cidr=159.26.110.46/32'
 
 The security group was applied successfully as `sg-0bd8eeba0ab2bc2e6`. A subsequent
 `terraform plan -var='admin_cidr=159.26.110.46/32'` reported no changes.
+
+## EC2 key pair
+
+The configuration also creates the `programmable-devops-lab` EC2 key pair from the
+local `~/.ssh/id_ed25519.pub` public key. The private key is never read by Terraform,
+committed to Git, or uploaded to AWS.
+
+The key pair was applied successfully, and a subsequent plan reported no changes.

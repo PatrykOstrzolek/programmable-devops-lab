@@ -51,4 +51,10 @@ jobs:
           free -h
           echo "== SSH service =="
           systemctl is-active ssh || systemctl is-active sshd
+          echo "== Temporary file test =="
+          TEST_FILE="/tmp/gh-actions-test.txt"
+          printf '%s\n' "Created by GitHub Actions SSH test." > "$TEST_FILE"
+          cat "$TEST_FILE"
+          rm -f "$TEST_FILE"
+          test ! -e "$TEST_FILE"
           REMOTE_SCRIPT

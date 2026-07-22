@@ -39,6 +39,8 @@ The inspection collects the operating system version, root filesystem usage, mem
 
 Workflow run `29941209866` completed successfully. The server reported Ubuntu Linux with a 20 GB root filesystem at 27% usage, approximately 913 MiB of memory, and an active SSH service.
 
+The next workflow run will create `/tmp/gh-actions-test.txt`, read it back, and remove it during the same run. This is a temporary deployment exercise; it does not change the application or persistent server configuration.
+
 ## Next learning steps
 
 Before installing WordPress, extend the workflow in two small increments:

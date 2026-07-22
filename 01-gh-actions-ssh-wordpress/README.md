@@ -13,7 +13,7 @@ A manually triggered workflow connects to the server and runs a controlled SSH c
 - [ ] Manually create an EC2 instance and install WordPress.
 - [x] Add GitHub secrets for the server address, user, and private SSH key.
 - [x] Create a manual SSH connectivity workflow.
-- [ ] Add a read-only server inspection step (`uname`, `df`, `free`, and SSH service status).
+- [x] Add a read-only server inspection step (`uname`, `df`, `free`, and SSH service status).
 - [ ] Add a small temporary file deployment test over SSH.
 - [x] Stop the EC2 instance after the SSH exercise.
 - [ ] Deploy an example theme or plugin change.
@@ -35,7 +35,9 @@ Run it from **Actions → SSH connectivity check → Run workflow**. A successfu
 
 On 2026-07-22, workflow run `29937712600` completed successfully. It connected to the EC2 instance and returned the remote hostname and the `ubuntu` SSH user. The workflow did not deploy files or change the server.
 
-The next inspection run will also collect the operating system version, root filesystem usage, memory summary, and SSH service status. These commands are read-only.
+The inspection collects the operating system version, root filesystem usage, memory summary, and SSH service status. These commands are read-only.
+
+Workflow run `29941209866` completed successfully. The server reported Ubuntu Linux with a 20 GB root filesystem at 27% usage, approximately 913 MiB of memory, and an active SSH service.
 
 ## Next learning steps
 

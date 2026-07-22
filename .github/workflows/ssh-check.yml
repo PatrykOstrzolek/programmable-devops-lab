@@ -38,4 +38,17 @@ jobs:
             -o StrictHostKeyChecking=yes \
             -o ConnectTimeout=15 \
             "$SSH_USER@$SSH_HOST" \
-            'hostname && whoami'
+            'bash -s' <<'REMOTE_SCRIPT'
+          set -euo pipefail
+          echo "== Identity =="
+          hostname
+          whoami
+          echo "== Operating system =="
+          uname -a
+          echo "== Disk space =="
+          df -h /
+          echo "== Memory =="
+          free -h
+          echo "== SSH service =="
+          systemctl is-active ssh || systemctl is-active sshd
+          REMOTE_SCRIPT

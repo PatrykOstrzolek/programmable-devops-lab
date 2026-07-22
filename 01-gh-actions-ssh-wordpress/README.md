@@ -14,7 +14,7 @@ A manually triggered workflow connects to the server and runs a controlled SSH c
 - [x] Add GitHub secrets for the server address, user, and private SSH key.
 - [x] Create a manual SSH connectivity workflow.
 - [x] Add a read-only server inspection step (`uname`, `df`, `free`, and SSH service status).
-- [ ] Add a small temporary file deployment test over SSH.
+- [x] Add a small temporary file deployment test over SSH.
 - [x] Stop the EC2 instance after the SSH exercise.
 - [ ] Deploy an example theme or plugin change.
 - [ ] Document how to roll back a change.
@@ -39,7 +39,7 @@ The inspection collects the operating system version, root filesystem usage, mem
 
 Workflow run `29941209866` completed successfully. The server reported Ubuntu Linux with a 20 GB root filesystem at 27% usage, approximately 913 MiB of memory, and an active SSH service.
 
-The next workflow run will create `/tmp/gh-actions-test.txt`, read it back, and remove it during the same run. This is a temporary deployment exercise; it does not change the application or persistent server configuration.
+Workflow run `29941649229` created `/tmp/gh-actions-test.txt`, read it back, and removed it during the same run. This was a temporary deployment exercise; it did not change the application or persistent server configuration.
 
 ## Next learning steps
 

@@ -6,13 +6,16 @@ Automatically deploy a custom WordPress theme or plugin to a manually created EC
 
 ## Outcome
 
-A push to a selected branch triggers a workflow that synchronizes application files with the server and runs a simple HTTP test.
+A manually triggered workflow connects to the server and runs a controlled SSH check. Deployment automation will be added in a later step.
 
 ## To do
 
 - [ ] Manually create an EC2 instance and install WordPress.
 - [ ] Add GitHub secrets for the server address, user, and private SSH key.
 - [x] Create a manual SSH connectivity workflow.
+- [ ] Add a read-only server inspection step (`uname`, `df`, `free`, and SSH service status).
+- [ ] Add a small temporary file deployment test over SSH.
+- [ ] Stop the EC2 instance after each exercise.
 - [ ] Deploy an example theme or plugin change.
 - [ ] Document how to roll back a change.
 
@@ -31,3 +34,12 @@ Run it from **Actions → SSH connectivity check → Run workflow**. A successfu
 ## Verification
 
 On 2026-07-22, workflow run `29937712600` completed successfully. It connected to the EC2 instance and returned the remote hostname and the `ubuntu` SSH user. The workflow did not deploy files or change the server.
+
+## Next learning steps
+
+Before installing WordPress, extend the workflow in two small increments:
+
+1. Add read-only commands to inspect the operating system, disk space, memory, and SSH service.
+2. Create one temporary diagnostic file over SSH and verify its contents.
+
+These exercises demonstrate the difference between inspecting a server and changing it. They also keep the manual EC2 stage small before Terraform and Ansible become responsible for infrastructure and configuration.

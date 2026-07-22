@@ -11,11 +11,11 @@ A manually triggered workflow connects to the server and runs a controlled SSH c
 ## To do
 
 - [ ] Manually create an EC2 instance and install WordPress.
-- [ ] Add GitHub secrets for the server address, user, and private SSH key.
+- [x] Add GitHub secrets for the server address, user, and private SSH key.
 - [x] Create a manual SSH connectivity workflow.
-- [x] Add a read-only server inspection step (`uname`, `df`, `free`, and SSH service status).
+- [ ] Add a read-only server inspection step (`uname`, `df`, `free`, and SSH service status).
 - [ ] Add a small temporary file deployment test over SSH.
-- [ ] Stop the EC2 instance after each exercise.
+- [x] Stop the EC2 instance after the SSH exercise.
 - [ ] Deploy an example theme or plugin change.
 - [ ] Document how to roll back a change.
 

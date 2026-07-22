@@ -54,3 +54,14 @@ Apply complete! Resources: 4 added, 1 changed, 0 destroyed.
 The bucket output was `programmable-devops-lab-tfstate-812047028383` in `eu-central-1`.
 The bucket is private, versioned, encrypted with AES256, protected from public access,
 and configured with `BucketOwnerEnforced` object ownership.
+
+## Remote backend
+
+The main Terraform configuration uses the bootstrap bucket as an S3 remote backend:
+
+```text
+s3://programmable-devops-lab-tfstate-812047028383/02-terraform-ec2/terraform.tfstate
+```
+
+Verification completed successfully with `terraform init`, `terraform validate`, and
+`terraform plan`. The plan reported no infrastructure changes.

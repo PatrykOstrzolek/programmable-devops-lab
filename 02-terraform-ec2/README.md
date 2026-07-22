@@ -26,7 +26,7 @@ Run these commands from this directory:
 terraform fmt
 terraform init -backend=false
 terraform validate
-terraform plan
+terraform plan -var='admin_cidr=YOUR_PUBLIC_IP/32'
 ```
 
 Verification: the configuration should format successfully, validate successfully, and produce a plan with no resources to add, change, or destroy.
@@ -69,8 +69,15 @@ Verification completed successfully with `terraform init`, `terraform validate`,
 ## Security group
 
 The main configuration currently creates one security group in the default VPC. It
-allows outbound traffic for updates and administration but has no inbound rules yet.
-SSH access will be added later with a CIDR restricted to the administrator's IP.
+allows outbound traffic for updates and administration. SSH access is restricted to
+the administrator's public IPv4 address through the required `admin_cidr` variable.
+
+For example:
+
+```bash
+terraform plan -var='admin_cidr=159.26.110.46/32'
+terraform apply -var='admin_cidr=159.26.110.46/32'
+```
 
 The security group was applied successfully as `sg-0bd8eeba0ab2bc2e6`. A subsequent
-`terraform plan` reported no changes.
+`terraform plan -var='admin_cidr=159.26.110.46/32'` reported no changes.

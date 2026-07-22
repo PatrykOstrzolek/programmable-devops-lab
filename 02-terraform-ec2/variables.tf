@@ -3,3 +3,8 @@ variable "aws_region" {
   type        = string
   default     = "eu-central-1"
 }
+
+variable "admin_cidr" {
+  description = "Public IPv4 CIDR allowed to connect to the instance over SSH."
+  type        = string
+}

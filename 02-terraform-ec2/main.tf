@@ -7,6 +7,14 @@ resource "aws_security_group" "web" {
   description = "Security group for the learning environment"
   vpc_id      = data.aws_vpc.default.id
 
+  ingress {
+    description = "SSH from the administrator public IP"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = [var.admin_cidr]
+  }
+
   egress {
     description = "Allow outbound traffic for updates and administration"
     from_port   = 0

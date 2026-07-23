@@ -34,7 +34,7 @@ bucket) that creates the one-time account-level trust GitHub Actions needs:
   `04-full-pipeline-wordpress/terraform/*` prefix of the state bucket.
 
 This had to be applied with admin-level AWS credentials (via `aws login
---profile admin`), not the `terraform-secondary` user used elsewhere in this
+--profile admin`), not the `programmable-devops-lab-terraform` user used elsewhere in this
 lab — creating an OIDC provider and IAM role is intentionally outside that
 user's least-privilege scope, so it can't grant itself broader access.
 
@@ -79,14 +79,14 @@ terraform apply -var='admin_cidr=["159.26.110.46/32"]' -var="ssh_public_key=$(ca
 The instance was applied successfully as `i-0e9cc8ed48b69227f`, reachable at
 `18.184.85.202` (`ec2-18-184-85-202.eu-central-1.compute.amazonaws.com`).
 
-### Incident: terraform-secondary lacked access to the new state key
+### Incident: programmable-devops-lab-terraform lacked access to the new state key
 
 The first `apply` created the EC2 instance successfully, but Terraform failed
-to save state: `terraform-secondary` (the IAM user used for manual local
+to save state: `programmable-devops-lab-terraform` (the IAM user used for manual local
 Terraform work throughout this lab) only had `s3:PutObject`/`GetObject` on the
 single object `02-terraform-ec2/terraform.tfstate` — not the new
 `04-full-pipeline-wordpress/terraform/terraform.tfstate` key. Unlike the
-GitHub Actions role, `terraform-secondary`'s policy (`TerraformStateBootstrapS3`,
+GitHub Actions role, `programmable-devops-lab-terraform`'s policy (`TerraformStateBootstrapS3`,
 an inline policy on the user) is not managed by Terraform in this repo; it was
 set up out of band before this lab's IaC existed.
 
@@ -100,7 +100,30 @@ Recovery:
    `aws iam put-user-policy` with admin credentials (not through this repo's
    Terraform, since that policy isn't defined here).
 
-Verification: `terraform plan` with the plain `terraform-secondary` credentials
+Verification: `terraform plan` with the plain `programmable-devops-lab-terraform` credentials
 (no `AWS_PROFILE`) reported "No changes. Your infrastructure matches the
 configuration," confirming both the fix and that the instance state was
 correctly recovered.
+
+Note: this user was renamed from `terraform-secondary` to
+`programmable-devops-lab-terraform` afterward, to match this account's naming
+convention (`programmable-devops-lab-*`). Renaming an IAM user does not change
+its access keys or attached/inline policies, only its ARN, so nothing else in
+this lab needed to change.
+
+## State locking
+
+All three S3 backends in this repo (`02-terraform-ec2`,
+`04-full-pipeline-wordpress/bootstrap`, `04-full-pipeline-wordpress/terraform`)
+now set `use_lockfile = true`, Terraform's native S3 locking (no DynamoDB table
+needed). This closes a real gap: without it, `programmable-devops-lab-terraform`
+running Terraform locally and a future GitHub Actions deploy could apply
+against the same state at the same time and corrupt it.
+
+Native locking writes a companion `<key>.tflock` object next to the state file,
+so both `programmable-devops-lab-terraform`'s external policy and the GitHub
+Actions role's inline policy needed `s3:GetObject`/`PutObject`/`DeleteObject` on
+that object too, not just the `.tfstate` object itself. The GitHub Actions
+role's policy already used a prefix wildcard (`.../terraform/*`), so it needed
+no change; `programmable-devops-lab-terraform`'s policy lists exact object
+ARNs, so both `.tflock` ARNs were added alongside the existing `.tfstate` ones.

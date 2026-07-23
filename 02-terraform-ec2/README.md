@@ -66,6 +66,11 @@ s3://programmable-devops-lab-tfstate-812047028383/02-terraform-ec2/terraform.tfs
 Verification completed successfully with `terraform init`, `terraform validate`, and
 `terraform plan`. The plan reported no infrastructure changes.
 
+The backend also sets `use_lockfile = true` (Terraform's native S3 locking, no
+DynamoDB table needed), so concurrent `apply` runs against this state can't
+corrupt it. See `04-full-pipeline-wordpress/README.md` for the full reasoning —
+it was added there first and backported here for consistency.
+
 ## Security group
 
 The main configuration currently creates one security group in the default VPC. It

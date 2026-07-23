@@ -265,6 +265,16 @@ rather than after authenticating. `exit-code: "1"` with
 `severity: "CRITICAL,HIGH"` means the job fails on anything at that severity;
 `MEDIUM`/`LOW` findings are not currently enforced.
 
+Pinned to a full commit SHA (`ed142fd0...` with a `# v0.36.0` comment for
+readability) rather than a mutable tag like the other actions in this
+workflow — worth doing specifically for a security-scanning step, since a tag
+could in principle be moved to point at different, unreviewed code. The exact
+tag mattered here too: an initial guess at the version string
+(`aquasecurity/trivy-action@0.36.0`, missing the `v` prefix) failed with
+"unable to resolve action" before a single step ran. Fixed by checking the
+real tags via `gh api repos/aquasecurity/trivy-action/tags` instead of
+guessing.
+
 Run it locally the same way before pushing:
 
 ```bash

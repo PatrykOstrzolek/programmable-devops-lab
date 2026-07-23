@@ -29,8 +29,10 @@ bucket) that creates the one-time account-level trust GitHub Actions needs:
   `thumbprint_list` is computed at apply time via the `tls_certificate` data
   source rather than hardcoded, to avoid guessing a security-relevant value.
 - An IAM role (`programmable-devops-lab-github-actions`) assumable only via
-  `sts:AssumeRoleWithWebIdentity` from this repo's `main` branch
-  (`repo:PatrykOstrzolek/programmable-devops-lab:ref:refs/heads/main`).
+  `sts:AssumeRoleWithWebIdentity`, restricted by the OIDC token's `sub` claim
+  to two shapes: jobs running directly on this repo's `main` branch, and jobs
+  gated behind the `production` environment (see "Incident" below for why
+  both are needed, and why the claim includes numeric IDs).
 - An inline policy scoped to what the `04-full-pipeline-wordpress/terraform`
   deploy workflow needs: EC2 management actions, and S3 access limited to the
   `04-full-pipeline-wordpress/terraform/*` prefix of the state bucket.
@@ -49,6 +51,39 @@ terraform validate
 AWS_PROFILE=admin terraform plan
 AWS_PROFILE=admin terraform apply
 ```
+
+### Incident: trust policy rejected real GitHub Actions tokens
+
+The very first live run of `deploy.yml` failed at "Configure AWS credentials"
+with `Not authorized to perform sts:AssumeRoleWithWebIdentity`, even though
+the OIDC provider and role existed and looked correctly configured. CloudTrail
+(`aws cloudtrail lookup-events --lookup-attributes
+AttributeKey=EventName,AttributeValue=AssumeRoleWithWebIdentity`) showed the
+real `sub` claim GitHub sent:
+
+```text
+repo:PatrykOstrzolek@18211258/programmable-devops-lab@1309003299:ref:refs/heads/main
+```
+
+GitHub includes the owner's and repo's immutable numeric IDs in the `sub`
+claim now, not just their names — the trust policy's `StringLike` condition
+only matched `repo:OWNER/REPO:ref:...` without the `@ID` suffixes, so every
+real token was rejected. Fixed by adding `github_owner_id` and
+`github_repository_id` variables (read from the CloudTrail event) and
+building the expected `sub` value from them.
+
+While fixing this, a second related issue became clear before it could cause
+the same failure in the `deploy` job: GitHub's `sub` claim has a *different*
+shape for jobs that reference an `environment:` (`repo:OWNER@ID/REPO@ID:environment:production`)
+versus jobs that don't (`repo:OWNER@ID/REPO@ID:ref:refs/heads/main`). The
+`plan` job has no environment; `deploy` is gated behind `production`. The
+trust policy's `sub` condition now lists both shapes.
+
+Verification: re-applied with `AWS_PROFILE=admin terraform apply` (`1
+changed`), then re-ran `deploy.yml` — the `plan` job completed successfully
+end to end, confirming the ref-based shape works. The `deploy` job (paused at
+the `production` environment approval gate) will confirm the
+environment-based shape once approved.
 
 Verification: applied successfully. `github_actions_role_arn =
 "arn:aws:iam::812047028383:role/programmable-devops-lab-github-actions"`.

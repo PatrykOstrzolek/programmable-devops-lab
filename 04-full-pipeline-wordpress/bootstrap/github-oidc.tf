@@ -8,6 +8,13 @@ resource "aws_iam_openid_connect_provider" "github_actions" {
   thumbprint_list = [data.tls_certificate.github_actions.certificates[0].sha1_fingerprint]
 }
 
+# GitHub now includes the repository owner's and repo's immutable numeric
+# IDs in the OIDC token's `sub` claim (e.g.
+# "repo:OWNER@OWNER_ID/REPO@REPO_ID:ref:refs/heads/main"), not just the
+# names. A trust policy matching only "repo:OWNER/REPO:ref:..." gets
+# "Not authorized to perform sts:AssumeRoleWithWebIdentity" — confirmed via
+# CloudTrail on a real failed AssumeRoleWithWebIdentity call. The IDs below
+# were read from that CloudTrail event for this specific repo.
 data "aws_iam_policy_document" "github_actions_trust" {
   statement {
     effect  = "Allow"
@@ -24,12 +31,24 @@ data "aws_iam_policy_document" "github_actions_trust" {
       values   = ["sts.amazonaws.com"]
     }
 
+    # Two allowed shapes: jobs with no "environment:" key present a
+    # ref-based sub; jobs that reference an environment (like "deploy",
+    # gated behind the "production" environment) present an
+    # environment-based sub instead. Both need to be trusted.
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_repo}:ref:refs/heads/main"]
+      values = [
+        "repo:${local.github_owner}@${var.github_owner_id}/${local.github_repo_name}@${var.github_repository_id}:ref:refs/heads/main",
+        "repo:${local.github_owner}@${var.github_owner_id}/${local.github_repo_name}@${var.github_repository_id}:environment:production",
+      ]
     }
   }
+}
+
+locals {
+  github_owner     = split("/", var.github_repo)[0]
+  github_repo_name = split("/", var.github_repo)[1]
 }
 
 resource "aws_iam_role" "github_actions_deploy" {

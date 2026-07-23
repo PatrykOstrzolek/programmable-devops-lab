@@ -10,6 +10,18 @@ variable "github_repo" {
   default     = "PatrykOstrzolek/programmable-devops-lab"
 }
 
+variable "github_owner_id" {
+  description = "Immutable numeric ID of the GitHub owner, as included in the OIDC sub claim."
+  type        = string
+  default     = "18211258"
+}
+
+variable "github_repository_id" {
+  description = "Immutable numeric ID of the GitHub repository, as included in the OIDC sub claim."
+  type        = string
+  default     = "1309003299"
+}
+
 variable "tfstate_bucket_name" {
   description = "Name of the existing Terraform state bucket (created by 02-terraform-ec2/bootstrap)."
   type        = string

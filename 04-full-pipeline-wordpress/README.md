@@ -80,10 +80,13 @@ versus jobs that don't (`repo:OWNER@ID/REPO@ID:ref:refs/heads/main`). The
 trust policy's `sub` condition now lists both shapes.
 
 Verification: re-applied with `AWS_PROFILE=admin terraform apply` (`1
-changed`), then re-ran `deploy.yml` — the `plan` job completed successfully
-end to end, confirming the ref-based shape works. The `deploy` job (paused at
-the `production` environment approval gate) will confirm the
-environment-based shape once approved.
+changed`), then re-ran `deploy.yml`
+([run 30001362332](https://github.com/PatrykOstrzolek/programmable-devops-lab/actions/runs/30001362332)).
+After approving the `production` environment gate, all three jobs
+(`plan`, `deploy`, `smoke-test`) completed successfully — confirming both the
+ref-based and environment-based `sub` shapes work, and that the full
+pipeline (Terraform apply → Ansible configure → HTTP 200 check) runs
+end to end from GitHub Actions for the first time.
 
 Verification: applied successfully. `github_actions_role_arn =
 "arn:aws:iam::812047028383:role/programmable-devops-lab-github-actions"`.

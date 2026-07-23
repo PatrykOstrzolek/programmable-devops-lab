@@ -20,6 +20,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Trivy IaC security scan
+        uses: aquasecurity/trivy-action@0.36.0
+        with:
+          scan-type: config
+          scan-ref: ${{ env.TF_DIR }}
+          exit-code: "1"
+          severity: "CRITICAL,HIGH"
+
       - name: Determine runner's public IP
         id: runner-ip
         run: echo "ip=$(curl -s https://checkip.amazonaws.com)" >> "$GITHUB_OUTPUT"

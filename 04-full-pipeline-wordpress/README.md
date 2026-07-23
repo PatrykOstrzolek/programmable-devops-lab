@@ -212,7 +212,9 @@ roles are still idempotent against the new instance.
 `.github/workflows/deploy.yml`, triggered manually from **Actions → Deploy
 WordPress pipeline → Run workflow**. Three jobs:
 
-1. **`plan`** — authenticates via OIDC (no stored AWS keys), runs
+1. **`plan`** — runs a Trivy IaC security scan against `terraform/` first
+   (before AWS auth even happens, so a bad config fails fast without needing
+   credentials), then authenticates via OIDC (no stored AWS keys) and runs
    `terraform fmt -check`, `init`, `validate`, `plan`. No approval needed;
    nothing changes yet.
 2. **`deploy`** — gated behind the `production` GitHub Environment, so it
@@ -253,6 +255,30 @@ Environment protection (`Settings → Environments → New environment` named
 the `deploy` job actually pause for approval. The workflow file alone cannot
 configure this — `environment: production` in the YAML only *references* an
 environment; its protection rules are set in the GitHub UI.
+
+### Security scanning
+
+`plan` runs [Trivy](https://trivy.dev/)'s IaC config scanner
+(`aquasecurity/trivy-action`) against `terraform/` before doing anything else
+— it needs no AWS credentials, so a bad config fails the run immediately
+rather than after authenticating. `exit-code: "1"` with
+`severity: "CRITICAL,HIGH"` means the job fails on anything at that severity;
+`MEDIUM`/`LOW` findings are not currently enforced.
+
+Run it locally the same way before pushing:
+
+```bash
+trivy config 04-full-pipeline-wordpress/terraform
+```
+
+It found exactly one finding the first time it ran: `AWS-0104` (CRITICAL,
+unrestricted security group egress to `0.0.0.0/0`). This was judged
+intentional rather than fixed — the instance needs outbound access to apt
+mirrors, wordpress.org, and other hosts with no stable, listable IP ranges —
+and suppressed with a `# trivy:ignore:AWS-0104` comment directly above the
+`egress` block in `main.tf`, along with a comment explaining why. The comment
+must be the line immediately before the block; Trivy doesn't associate an
+ignore comment that has other comment lines between it and the code.
 
 ### Known limitation: WordPress salts are not stable across CI runs
 

@@ -64,6 +64,11 @@ resource "aws_security_group" "web" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  # Unrestricted egress is intentional here: the instance needs outbound
+  # access to apt mirrors, wordpress.org, and other unpredictable hosts for
+  # package updates and the WordPress download, none of which have stable,
+  # listable IP ranges.
+  # trivy:ignore:AWS-0104
   egress {
     description = "Allow outbound traffic for updates and administration"
     from_port   = 0

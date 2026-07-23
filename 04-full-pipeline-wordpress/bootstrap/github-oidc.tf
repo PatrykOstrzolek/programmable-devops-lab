@@ -77,7 +77,7 @@ data "aws_iam_policy_document" "github_actions_permissions" {
       "s3:PutObject",
       "s3:DeleteObject",
     ]
-    resources = ["arn:aws:s3:::${var.tfstate_bucket_name}/02-terraform-ec2/*"]
+    resources = ["arn:aws:s3:::${var.tfstate_bucket_name}/04-full-pipeline-wordpress/terraform/*"]
   }
 
   statement {
@@ -88,7 +88,7 @@ data "aws_iam_policy_document" "github_actions_permissions" {
     condition {
       test     = "StringLike"
       variable = "s3:prefix"
-      values   = ["02-terraform-ec2/*"]
+      values   = ["04-full-pipeline-wordpress/terraform/*"]
     }
   }
 }

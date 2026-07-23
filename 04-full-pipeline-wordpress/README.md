@@ -29,9 +29,9 @@ bucket) that creates the one-time account-level trust GitHub Actions needs:
 - An IAM role (`programmable-devops-lab-github-actions`) assumable only via
   `sts:AssumeRoleWithWebIdentity` from this repo's `main` branch
   (`repo:PatrykOstrzolek/programmable-devops-lab:ref:refs/heads/main`).
-- An inline policy scoped to what the `02-terraform-ec2` deploy workflow
-  needs: EC2 management actions, and S3 access limited to the
-  `02-terraform-ec2/*` prefix of the state bucket.
+- An inline policy scoped to what the `04-full-pipeline-wordpress/terraform`
+  deploy workflow needs: EC2 management actions, and S3 access limited to the
+  `04-full-pipeline-wordpress/terraform/*` prefix of the state bucket.
 
 This had to be applied with admin-level AWS credentials (via `aws login
 --profile admin`), not the `terraform-secondary` user used elsewhere in this
@@ -50,3 +50,57 @@ AWS_PROFILE=admin terraform apply
 
 Verification: applied successfully. `github_actions_role_arn =
 "arn:aws:iam::812047028383:role/programmable-devops-lab-github-actions"`.
+
+## Terraform
+
+`terraform/` is a standalone copy of `02-terraform-ec2`'s configuration, not a
+shared module — each stage in this repo is its own self-contained lesson, so
+stage 02 was left untouched rather than modified in place. Two differences from
+the original:
+
+- Its own state key: `04-full-pipeline-wordpress/terraform/terraform.tfstate`.
+- `admin_cidr` is `list(string)` instead of `string`, since the security group
+  needs to allow both the administrator's IP and, later, the GitHub Actions
+  runner's IP during a deploy — not just one.
+
+Before starting stage 04, the stage 02/03 EC2 instance was destroyed (see
+`02-terraform-ec2/README.md`) to avoid running two EC2 instances in parallel.
+
+Run this from `04-full-pipeline-wordpress/terraform/`:
+
+```bash
+terraform fmt
+terraform init
+terraform validate
+terraform plan -var='admin_cidr=["159.26.110.46/32"]' -var="ssh_public_key=$(cat ~/.ssh/id_ed25519.pub)"
+terraform apply -var='admin_cidr=["159.26.110.46/32"]' -var="ssh_public_key=$(cat ~/.ssh/id_ed25519.pub)"
+```
+
+The instance was applied successfully as `i-0e9cc8ed48b69227f`, reachable at
+`18.184.85.202` (`ec2-18-184-85-202.eu-central-1.compute.amazonaws.com`).
+
+### Incident: terraform-secondary lacked access to the new state key
+
+The first `apply` created the EC2 instance successfully, but Terraform failed
+to save state: `terraform-secondary` (the IAM user used for manual local
+Terraform work throughout this lab) only had `s3:PutObject`/`GetObject` on the
+single object `02-terraform-ec2/terraform.tfstate` — not the new
+`04-full-pipeline-wordpress/terraform/terraform.tfstate` key. Unlike the
+GitHub Actions role, `terraform-secondary`'s policy (`TerraformStateBootstrapS3`,
+an inline policy on the user) is not managed by Terraform in this repo; it was
+set up out of band before this lab's IaC existed.
+
+Recovery:
+
+1. Terraform wrote the unsaved state to a local `errored.tfstate`. Pushed it
+   with admin credentials: `AWS_PROFILE=admin terraform state push
+   errored.tfstate`.
+2. Extended the `TerraformStateBootstrapS3` policy's `ManageTerraformStateObject`
+   statement to list both state objects as `Resource`, via
+   `aws iam put-user-policy` with admin credentials (not through this repo's
+   Terraform, since that policy isn't defined here).
+
+Verification: `terraform plan` with the plain `terraform-secondary` credentials
+(no `AWS_PROFILE`) reported "No changes. Your infrastructure matches the
+configuration," confirming both the fix and that the instance state was
+correctly recovered.

@@ -1,0 +1,176 @@
+name: Deploy WordPress pipeline
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: eu-central-1
+  TF_DIR: 04-full-pipeline-wordpress/terraform
+  ANSIBLE_DIR: 04-full-pipeline-wordpress/ansible
+
+jobs:
+  plan:
+    name: Terraform plan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Determine runner's public IP
+        id: runner-ip
+        run: echo "ip=$(curl -s https://checkip.amazonaws.com)" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform fmt check
+        working-directory: ${{ env.TF_DIR }}
+        run: terraform fmt -check
+
+      - name: Terraform init
+        working-directory: ${{ env.TF_DIR }}
+        run: terraform init
+
+      - name: Terraform validate
+        working-directory: ${{ env.TF_DIR }}
+        run: terraform validate
+
+      - name: Terraform plan
+        working-directory: ${{ env.TF_DIR }}
+        env:
+          ADMIN_CIDR: ${{ vars.ADMIN_CIDR }}
+          RUNNER_IP: ${{ steps.runner-ip.outputs.ip }}
+          SSH_PUBLIC_KEY: ${{ vars.SSH_PUBLIC_KEY }}
+        run: |
+          set -euo pipefail
+          terraform plan \
+            -var="admin_cidr=[\"${ADMIN_CIDR}\", \"${RUNNER_IP}/32\"]" \
+            -var="ssh_public_key=${SSH_PUBLIC_KEY}"
+
+  # terraform apply and the Ansible run share this one job (and therefore one
+  # runner, one IP) on purpose: the security group only allows SSH from the
+  # IP that "apply" just added. A separate job could land on a different
+  # runner with a different IP and get locked out of the host it just
+  # created.
+  deploy:
+    name: Terraform apply + Ansible configure
+    needs: plan
+    runs-on: ubuntu-latest
+    environment: production
+    outputs:
+      public_ip: ${{ steps.output.outputs.public_ip }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Determine runner's public IP
+        id: runner-ip
+        run: echo "ip=$(curl -s https://checkip.amazonaws.com)" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform init
+        working-directory: ${{ env.TF_DIR }}
+        run: terraform init
+
+      - name: Terraform apply
+        working-directory: ${{ env.TF_DIR }}
+        env:
+          ADMIN_CIDR: ${{ vars.ADMIN_CIDR }}
+          RUNNER_IP: ${{ steps.runner-ip.outputs.ip }}
+          SSH_PUBLIC_KEY: ${{ vars.SSH_PUBLIC_KEY }}
+        run: |
+          set -euo pipefail
+          terraform apply -auto-approve \
+            -var="admin_cidr=[\"${ADMIN_CIDR}\", \"${RUNNER_IP}/32\"]" \
+            -var="ssh_public_key=${SSH_PUBLIC_KEY}"
+
+      - name: Read instance public IP
+        id: output
+        working-directory: ${{ env.TF_DIR }}
+        run: echo "public_ip=$(terraform output -raw public_ip)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Ansible
+        run: pip install ansible
+
+      - name: Install Ansible collections
+        working-directory: ${{ env.ANSIBLE_DIR }}
+        run: ansible-galaxy collection install -r requirements.yml
+
+      - name: Write SSH private key
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$HOME/.ssh/deploy_key"
+          chmod 600 "$HOME/.ssh/deploy_key"
+
+      - name: Trust the instance's SSH host key
+        env:
+          PUBLIC_IP: ${{ steps.output.outputs.public_ip }}
+        run: |
+          set -euo pipefail
+          ssh-keyscan -H "$PUBLIC_IP" >> "$HOME/.ssh/known_hosts"
+          chmod 644 "$HOME/.ssh/known_hosts"
+
+      - name: Write Ansible Vault password
+        working-directory: ${{ env.ANSIBLE_DIR }}
+        env:
+          VAULT_PASSWORD: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$VAULT_PASSWORD" > .vault_pass
+          chmod 600 .vault_pass
+
+      - name: Write inventory
+        working-directory: ${{ env.ANSIBLE_DIR }}
+        env:
+          PUBLIC_IP: ${{ steps.output.outputs.public_ip }}
+        run: |
+          set -euo pipefail
+          mkdir -p inventory
+          cat > inventory/hosts.ini <<EOF
+          [web]
+          $PUBLIC_IP ansible_user=ubuntu ansible_python_interpreter=/usr/bin/python3
+          EOF
+
+      - name: Run playbook
+        working-directory: ${{ env.ANSIBLE_DIR }}
+        run: ansible-playbook site.yml --private-key "$HOME/.ssh/deploy_key"
+
+  smoke-test:
+    name: Page availability test
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check the site responds
+        env:
+          PUBLIC_IP: ${{ needs.deploy.outputs.public_ip }}
+        run: |
+          set -euo pipefail
+          status="$(curl -sL -o /dev/null -w '%{http_code}' "http://${PUBLIC_IP}/")"
+          echo "HTTP status: $status"
+          test "$status" -eq 200

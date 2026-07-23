@@ -6,15 +6,17 @@ Combine GitHub Actions, Terraform, and Ansible into one controlled deployment pr
 
 ## Flow
 
-`push` or manual trigger → Terraform plan/apply → Ansible → application deployment → HTTP test.
+Manual trigger (`workflow_dispatch`) → Terraform plan → manual approval gate →
+Terraform apply → Ansible → HTTP test. A `push` trigger was deliberately left
+out for now — see "Deploy workflow" below.
 
 ## To do
 
 - [x] Set up GitHub Actions authentication to AWS via OIDC (no long-lived keys).
-- [ ] Create a `deploy.yml` workflow with manual approval before `apply`.
+- [x] Create a `deploy.yml` workflow with manual approval before `apply`.
 - [ ] Create a `destroy.yml` workflow that can only be triggered manually.
 - [x] Pass the EC2 address from Terraform to Ansible dynamic inventory.
-- [ ] Add a page availability test after deployment.
+- [x] Add a page availability test after deployment.
 - [ ] Add brief emergency rollback instructions.
 
 ## Bootstrap: GitHub Actions OIDC
@@ -166,3 +168,62 @@ stage 03).
 Verification: `curl` against the instance returned HTTP 200. Ran the playbook
 twice: first run `changed=16`, second run `changed=0`, confirming the copied
 roles are still idempotent against the new instance.
+
+## Deploy workflow
+
+`.github/workflows/deploy.yml`, triggered manually from **Actions → Deploy
+WordPress pipeline → Run workflow**. Three jobs:
+
+1. **`plan`** — authenticates via OIDC (no stored AWS keys), runs
+   `terraform fmt -check`, `init`, `validate`, `plan`. No approval needed;
+   nothing changes yet.
+2. **`deploy`** — gated behind the `production` GitHub Environment, so it
+   pauses for manual approval before running. Runs `terraform apply`, then
+   immediately configures the instance with Ansible, **in the same job**. This
+   is deliberate, not incidental: the security group only allows SSH from the
+   IP that was just added to `admin_cidr`. A separate job for the Ansible step
+   could land on a different runner machine with a different IP and get
+   locked out of the host `apply` just created — merging the jobs guarantees
+   the same IP for both.
+3. **`smoke-test`** — `curl`s the instance's public IP and fails the run if it
+   doesn't return `200`.
+
+`admin_cidr` is built at runtime as `[vars.ADMIN_CIDR, "<runner IP>/32"]`, so
+both the administrator's fixed IP and the current runner's IP are allowed —
+matching the "extend the security group" decision made earlier over SSM
+Session Manager.
+
+### Required GitHub configuration (one-time, manual)
+
+Repository variables (`Settings → Secrets and variables → Actions →
+Variables`, not secret — not sensitive):
+
+- `AWS_DEPLOY_ROLE_ARN` = `arn:aws:iam::812047028383:role/programmable-devops-lab-github-actions`
+- `ADMIN_CIDR` = your fixed public IP, e.g. `159.26.110.46/32`
+- `SSH_PUBLIC_KEY` = contents of `~/.ssh/id_ed25519.pub` (must match the
+  `programmable-devops-lab` key pair Terraform manages)
+
+Repository secrets (same page, `Secrets` tab):
+
+- `SSH_PRIVATE_KEY` = the complete private key matching the public key above,
+  including the `BEGIN`/`END` lines
+- `ANSIBLE_VAULT_PASSWORD` = the contents of
+  `04-full-pipeline-wordpress/ansible/.vault_pass`
+
+Environment protection (`Settings → Environments → New environment` named
+`production`, then add yourself as a required reviewer): this is what makes
+the `deploy` job actually pause for approval. The workflow file alone cannot
+configure this — `environment: production` in the YAML only *references* an
+environment; its protection rules are set in the GitHub UI.
+
+### Known limitation: WordPress salts are not stable across CI runs
+
+The `wordpress` role's auth salts are cached locally via Ansible's `password`
+lookup (`.wp_salts/`, see the Ansible section above) so repeated *local* runs
+reuse the same values. GitHub Actions runners are ephemeral — that cache never
+persists between workflow runs — so every `deploy` run currently generates
+fresh salts and rewrites `wp-config.php`, which invalidates all logged-in
+WordPress sessions on each redeploy. It doesn't break the deployment or lose
+data, so this was left as-is rather than fixed now. A real fix would generate
+the salts once and store them as GitHub secrets instead of relying on the
+lookup cache in CI.

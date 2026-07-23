@@ -1,0 +1,99 @@
+name: Destroy WordPress pipeline infrastructure
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "destroy" to confirm tearing down the stage 04 EC2 instance and all its data (WordPress site, database).'
+        required: true
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: eu-central-1
+  TF_DIR: 04-full-pipeline-wordpress/terraform
+
+jobs:
+  plan-destroy:
+    name: Terraform destroy plan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Determine runner's public IP
+        id: runner-ip
+        run: echo "ip=$(curl -s https://checkip.amazonaws.com)" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform init
+        working-directory: ${{ env.TF_DIR }}
+        run: terraform init
+
+      - name: Terraform plan -destroy
+        working-directory: ${{ env.TF_DIR }}
+        env:
+          ADMIN_CIDR: ${{ vars.ADMIN_CIDR }}
+          RUNNER_IP: ${{ steps.runner-ip.outputs.ip }}
+          SSH_PUBLIC_KEY: ${{ vars.SSH_PUBLIC_KEY }}
+        run: |
+          set -euo pipefail
+          terraform plan -destroy \
+            -var="admin_cidr=[\"${ADMIN_CIDR}\", \"${RUNNER_IP}/32\"]" \
+            -var="ssh_public_key=${SSH_PUBLIC_KEY}"
+
+  destroy:
+    name: Terraform destroy
+    needs: plan-destroy
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Validate confirmation input
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event.inputs.confirm }}" != "destroy" ]; then
+            echo "::error::You must type exactly 'destroy' in the confirm input. Got: '${{ github.event.inputs.confirm }}'"
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Determine runner's public IP
+        id: runner-ip
+        run: echo "ip=$(curl -s https://checkip.amazonaws.com)" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform init
+        working-directory: ${{ env.TF_DIR }}
+        run: terraform init
+
+      - name: Terraform destroy
+        working-directory: ${{ env.TF_DIR }}
+        env:
+          ADMIN_CIDR: ${{ vars.ADMIN_CIDR }}
+          RUNNER_IP: ${{ steps.runner-ip.outputs.ip }}
+          SSH_PUBLIC_KEY: ${{ vars.SSH_PUBLIC_KEY }}
+        run: |
+          set -euo pipefail
+          terraform destroy -auto-approve \
+            -var="admin_cidr=[\"${ADMIN_CIDR}\", \"${RUNNER_IP}/32\"]" \
+            -var="ssh_public_key=${SSH_PUBLIC_KEY}"

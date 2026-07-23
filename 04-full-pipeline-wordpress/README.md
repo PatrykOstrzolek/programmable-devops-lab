@@ -14,7 +14,7 @@ out for now — see "Deploy workflow" below.
 
 - [x] Set up GitHub Actions authentication to AWS via OIDC (no long-lived keys).
 - [x] Create a `deploy.yml` workflow with manual approval before `apply`.
-- [ ] Create a `destroy.yml` workflow that can only be triggered manually.
+- [x] Create a `destroy.yml` workflow that can only be triggered manually.
 - [x] Pass the EC2 address from Terraform to Ansible dynamic inventory.
 - [x] Add a page availability test after deployment.
 - [ ] Add brief emergency rollback instructions.
@@ -265,3 +265,24 @@ WordPress sessions on each redeploy. It doesn't break the deployment or lose
 data, so this was left as-is rather than fixed now. A real fix would generate
 the salts once and store them as GitHub secrets instead of relying on the
 lookup cache in CI.
+
+## Destroy workflow
+
+`.github/workflows/destroy.yml`, triggered manually from **Actions → Destroy
+WordPress pipeline infrastructure → Run workflow**. Mirrors `deploy.yml`'s
+structure:
+
+1. **`plan-destroy`** — ungated, runs `terraform plan -destroy` so you can see
+   exactly what would be removed before anything happens.
+2. **`destroy`** — gated behind the same `production` environment approval,
+   plus one extra safeguard: the workflow requires a `confirm` input, and the
+   job's first step fails immediately unless you typed the literal word
+   `destroy`. This is on top of the environment approval, not instead of it —
+   two independent ways to stop an accidental run.
+
+No Ansible step is needed here, unlike `deploy.yml`: destroying the EC2
+instance removes WordPress and its database along with it, there is nothing
+left to configure.
+
+Required GitHub configuration is the same as `deploy.yml` — no additional
+variables, secrets, or environment setup needed.

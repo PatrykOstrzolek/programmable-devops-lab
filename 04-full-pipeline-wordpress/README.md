@@ -13,7 +13,7 @@ Combine GitHub Actions, Terraform, and Ansible into one controlled deployment pr
 - [x] Set up GitHub Actions authentication to AWS via OIDC (no long-lived keys).
 - [ ] Create a `deploy.yml` workflow with manual approval before `apply`.
 - [ ] Create a `destroy.yml` workflow that can only be triggered manually.
-- [ ] Pass the EC2 address from Terraform to Ansible dynamic inventory.
+- [x] Pass the EC2 address from Terraform to Ansible dynamic inventory.
 - [ ] Add a page availability test after deployment.
 - [ ] Add brief emergency rollback instructions.
 
@@ -127,3 +127,42 @@ that object too, not just the `.tfstate` object itself. The GitHub Actions
 role's policy already used a prefix wildcard (`.../terraform/*`), so it needed
 no change; `programmable-devops-lab-terraform`'s policy lists exact object
 ARNs, so both `.tflock` ARNs were added alongside the existing `.tfstate` ones.
+
+## Ansible
+
+`ansible/` is a standalone copy of `03-ansible-wordpress`'s roles and
+playbook, same reasoning as the Terraform copy: each stage is its own
+self-contained lesson. The secrets are not copied, though — `.vault_pass` and
+the vault-encrypted `wordpress_db_password` in `group_vars/web/vault.yml` were
+freshly generated for this environment rather than reused from stage 03.
+
+The one real difference is the inventory. Stage 03 used a static
+`inventory/hosts.ini` committed to the repo; here the EC2 address isn't known
+until after `terraform apply`, and can change on every `destroy`/`apply`
+cycle, so `generate-inventory.sh` builds it dynamically:
+
+```bash
+#!/usr/bin/env bash
+terraform -chdir="../terraform" output -raw public_ip
+# → writes inventory/hosts.ini
+```
+
+`inventory/hosts.ini` is gitignored — it's a build artifact, regenerated
+before every run, not something to track.
+
+Run this from `04-full-pipeline-wordpress/ansible/` (after `terraform apply`
+in `../terraform/`):
+
+```bash
+./generate-inventory.sh
+ansible-playbook site.yml
+```
+
+The first run against the new instance needed one extra one-time step: the
+host's SSH key wasn't yet trusted, so `ssh ... ubuntu@<ip>` was run once
+manually to accept it (`ssh-keyscan` in CI, per the known limitation noted for
+stage 03).
+
+Verification: `curl` against the instance returned HTTP 200. Ran the playbook
+twice: first run `changed=16`, second run `changed=0`, confirming the copied
+roles are still idempotent against the new instance.

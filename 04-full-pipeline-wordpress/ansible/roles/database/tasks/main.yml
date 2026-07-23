@@ -1,0 +1,29 @@
+---
+- name: Install MySQL server and Python client library
+  ansible.builtin.apt:
+    name:
+      - mysql-server
+      - python3-pymysql
+    state: present
+
+- name: Ensure MySQL is enabled and running
+  ansible.builtin.service:
+    name: mysql
+    state: started
+    enabled: true
+
+- name: Create the WordPress database
+  ansible.mysql.mysql_db:
+    name: "{{ wordpress_db_name }}"
+    state: present
+    login_unix_socket: /var/run/mysqld/mysqld.sock
+
+- name: Create the WordPress database user
+  ansible.mysql.mysql_user:
+    name: "{{ wordpress_db_user }}"
+    password: "{{ wordpress_db_password }}"
+    priv: "{{ wordpress_db_name }}.*:ALL"
+    host: localhost
+    state: present
+    login_unix_socket: /var/run/mysqld/mysqld.sock
+  no_log: true

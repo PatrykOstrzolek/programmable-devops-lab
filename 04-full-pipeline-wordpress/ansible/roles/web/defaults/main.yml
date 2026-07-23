@@ -1,0 +1,15 @@
+---
+web_document_root: /var/www/wordpress
+web_domain_name: _
+php_fpm_socket: /run/php/php8.3-fpm.sock
+
+web_packages:
+  - nginx
+  - php-fpm
+  - php-mysql
+  - php-curl
+  - php-gd
+  - php-mbstring
+  - php-xml
+  - php-zip
+  - php-intl

@@ -1,0 +1,30 @@
+---
+- name: Download WordPress
+  ansible.builtin.get_url:
+    url: "{{ wordpress_download_url }}"
+    dest: "{{ wordpress_download_dest }}"
+    mode: "0644"
+
+- name: Extract WordPress
+  ansible.builtin.unarchive:
+    src: "{{ wordpress_download_dest }}"
+    dest: "{{ wordpress_extract_dest }}"
+    remote_src: true
+    creates: "{{ wordpress_extract_dest }}/wordpress/wp-load.php"
+
+- name: Deploy WordPress core files to the document root
+  ansible.builtin.copy:
+    src: "{{ wordpress_extract_dest }}/wordpress/"
+    dest: "{{ web_document_root }}/"
+    remote_src: true
+    owner: www-data
+    group: www-data
+
+- name: Deploy wp-config.php
+  ansible.builtin.template:
+    src: wp-config.php.j2
+    dest: "{{ web_document_root }}/wp-config.php"
+    owner: www-data
+    group: www-data
+    mode: "0640"
+  no_log: true

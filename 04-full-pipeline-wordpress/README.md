@@ -17,7 +17,7 @@ out for now — see "Deploy workflow" below.
 - [x] Create a `destroy.yml` workflow that can only be triggered manually.
 - [x] Pass the EC2 address from Terraform to Ansible dynamic inventory.
 - [x] Add a page availability test after deployment.
-- [ ] Add brief emergency rollback instructions.
+- [x] Add brief emergency rollback instructions.
 
 ## Bootstrap: GitHub Actions OIDC
 
@@ -286,3 +286,37 @@ left to configure.
 
 Required GitHub configuration is the same as `deploy.yml` — no additional
 variables, secrets, or environment setup needed.
+
+## Emergency rollback
+
+This lab has no database backups, blue-green deployment, or AMI snapshots.
+"Rollback" here means reverting the source of truth (Git) and re-converging
+infrastructure and configuration to match it — not restoring from a backup.
+Pick based on what actually broke:
+
+1. **Bad Terraform or Ansible change** (misconfigured security group, broken
+   role, wrong variable) — `git revert <bad commit>` (or `git checkout
+   <last-good-commit> -- <path>`), push to `main`, run `deploy.yml` again.
+   Everything here is idempotent, so this converges the real infrastructure
+   back to the last-good state; it does not require `destroy.yml` first.
+
+2. **WordPress itself broken** (a plugin, theme, or content change made
+   directly through the browser — nothing tracked in this repo) — not
+   recoverable in place, since there's no content backup. The only clean fix
+   is `destroy.yml` followed by `deploy.yml`, which rebuilds a fresh instance
+   from scratch. This deliberately discards any data entered through the
+   browser: this is a learning environment, not a site with real user data to
+   protect.
+
+3. **Need to act immediately, before running any workflow** — SSH directly
+   from `04-full-pipeline-wordpress/terraform/`:
+
+   ```bash
+   ssh -i ~/.ssh/id_ed25519 ubuntu@$(terraform output -raw public_ip)
+   ```
+
+   Use this to stop services (`sudo systemctl stop nginx php8.3-fpm mysql`)
+   or copy off anything worth keeping, before deciding between options 1
+   and 2. This only works from an IP already allowed by the security group
+   (your `admin_cidr`), since GitHub Actions' runner IP is only added
+   temporarily during a workflow run.
